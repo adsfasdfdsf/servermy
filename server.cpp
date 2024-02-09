@@ -39,9 +39,7 @@ void Server::onNewMessage(){
         auto msg = socket_ptr->readAll();
         qDebug() << msg;
         for (const auto& cl: clients){
-            if (cl != socket_ptr){
-                cl->write(msg);
-            }
+            cl->write(msg);
         }
     }
 }
