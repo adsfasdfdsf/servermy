@@ -31,11 +31,26 @@ Server::Server(QObject *parent)
 void Server::onNewConnection()
 {
     auto clsocket = server_ptr->nextPendingConnection();
+    qDebug() << "new connection";
     clients.push_back(clsocket);
     connect(clsocket, &QTcpSocket::readyRead,
             this, &Server::onNewMessage);
     connect(clsocket, &QTcpSocket::disconnected,
             this, &Server::onDisconnect);
+
+    QSqlQuery query;
+    query.exec("SELECT * FROM messages");
+    query.next();
+        QString name = query.value(1).toString();
+        QString message = query.value(2).toString();
+        QJsonObject json;
+        json.insert("name", name);
+        json.insert("message", message);
+        QJsonDocument doc(json);
+        QString msg = doc.toJson(QJsonDocument::Compact);
+        clsocket->write(msg.toLatin1());
+        qDebug() << name << ": " << message;
+
 }
 
 void Server::onDisconnect(){
@@ -61,6 +76,13 @@ void Server::onNewMessage(){
         }
         for (const auto& cl: clients){
             cl->write(msg);
+        }
+        QSqlQuery selectQuery("SELECT * FROM messages");
+        while (selectQuery.next()) {
+            int id = selectQuery.value(0).toInt();
+            QString name = selectQuery.value(1).toString();
+            QString salary = selectQuery.value(2).toString();
+            qDebug() << "ID:" << id << ", Name:" << name << ", msg:" << salary;
         }
     }
 }
