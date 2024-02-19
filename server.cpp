@@ -1,7 +1,12 @@
 #include "server.h"
 #include <QTcpServer>
 #include <QTcpSocket>
-
+#include <QtSql>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonValue>
+#include <QJsonParseError>
 
 Server::Server(QObject *parent)
     : QObject{parent}
@@ -14,6 +19,13 @@ Server::Server(QObject *parent)
         exit(1);
     }
     qDebug() << "Listen success";
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+    db.setDatabaseName("chat.db");
+    db.open();
+    QSqlQuery query;
+    if (!query.exec("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, name STRING, message STRING)")){
+        qDebug() << query.lastError().text();
+    }
 }
 
 void Server::onNewConnection()
@@ -37,7 +49,16 @@ void Server::onNewMessage(){
     auto socket_ptr = dynamic_cast<QTcpSocket*>(sender());
     while(socket_ptr->bytesAvailable() > 0){
         auto msg = socket_ptr->readAll();
-        qDebug() << msg;
+        QJsonDocument doc = QJsonDocument::fromJson(msg);
+        QJsonObject json = doc.object();
+        qDebug() << json["name"].toString() << ": " << json["message"].toString();
+        QSqlQuery query;
+        query.prepare("INSERT INTO messages (name, message) VALUES (:name, :message)");
+        query.bindValue(":name", json["name"].toString());
+        query.bindValue(":message", json["message"].toString());
+        if (!query.exec()){
+            qDebug() << query.lastError().text();
+        }
         for (const auto& cl: clients){
             cl->write(msg);
         }

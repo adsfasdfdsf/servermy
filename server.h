@@ -9,7 +9,6 @@ class Server : public QObject
     Q_OBJECT
 public:
     explicit Server(QObject *parent = nullptr);
-
 private:
     QTcpServer* server_ptr;
     QVector<class QTcpSocket*> clients;
