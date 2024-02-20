@@ -1,6 +1,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include <QMap>
 #include <QObject>
 class QTcpServer;
 
@@ -11,7 +12,7 @@ public:
     explicit Server(QObject *parent = nullptr);
 private:
     QTcpServer* server_ptr;
-    QVector<class QTcpSocket*> clients;
+    QMap<class QTcpSocket*, QString> clients;
 private slots:
     void onNewConnection();
     void onDisconnect();

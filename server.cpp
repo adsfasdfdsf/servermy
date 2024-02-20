@@ -32,7 +32,8 @@ void Server::onNewConnection()
 {
     auto clsocket = server_ptr->nextPendingConnection();
     qDebug() << "new connection";
-    clients.push_back(clsocket);
+    QString clname = clsocket->readAll();
+    clients[clsocket] =  clname;
     connect(clsocket, &QTcpSocket::readyRead,
             this, &Server::onNewMessage);
     connect(clsocket, &QTcpSocket::disconnected,
@@ -62,7 +63,7 @@ void Server::onNewConnection()
 void Server::onDisconnect(){
     auto socket_ptr = dynamic_cast<QTcpSocket*>(sender());
     socket_ptr->close();
-    clients.removeOne(socket_ptr);
+    clients.remove(socket_ptr);
     qDebug() << "Client: ";
 }
 
@@ -83,17 +84,12 @@ void Server::onNewMessage(){
             if (!query.exec()){
                 qDebug() << query.lastError().text();
             }
-            for (const auto& cl: clients){
-                cl->write(msg);
+            qDebug() << newobj["name"].toString() << ": " << newobj["message"].toString();
+            for (auto cl = clients.keyBegin(); cl != clients.keyEnd(); ++cl){
+                (*cl)->write(msg);
             }
         }
-        //QSqlQuery selectQuery("SELECT * FROM messages");
-        //while (selectQuery.next()) {
-        //    int id = selectQuery.value(0).toInt();
-        //    QString name = selectQuery.value(1).toString();
-        //    QString salary = selectQuery.value(2).toString();
-        //    qDebug() << "ID:" << id << ", Name:" << name << ", msg:" << salary;
-        //}
+
     }
 }
 
