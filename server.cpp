@@ -63,8 +63,8 @@ void Server::onNewConnection()
 void Server::onDisconnect(){
     auto socket_ptr = dynamic_cast<QTcpSocket*>(sender());
     socket_ptr->close();
+    qDebug() << "Client: " << clients[socket_ptr] << " has left";
     clients.remove(socket_ptr);
-    qDebug() << "Client: ";
 }
 
 void Server::onNewMessage(){
@@ -73,7 +73,7 @@ void Server::onNewMessage(){
         auto msg = socket_ptr->readAll();
         QJsonDocument doc = QJsonDocument::fromJson(msg);
         QJsonObject json = doc.object();
-        //qDebug() << json["name"].toString() << ": " << json["message"].toString();
+
         QJsonArray messages = json["messages"].toArray();
         for (const auto& i: messages){
             QJsonObject newobj = i.toObject();
@@ -89,7 +89,6 @@ void Server::onNewMessage(){
                 (*cl)->write(msg);
             }
         }
-
     }
 }
 
