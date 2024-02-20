@@ -40,16 +40,22 @@ void Server::onNewConnection()
 
     QSqlQuery query;
     query.exec("SELECT * FROM messages");
-    query.next();
-        QString name = query.value(1).toString();
-        QString message = query.value(2).toString();
-        QJsonObject json;
-        json.insert("name", name);
-        json.insert("message", message);
-        QJsonDocument doc(json);
-        QString msg = doc.toJson(QJsonDocument::Compact);
-        clsocket->write(msg.toLatin1());
-        qDebug() << name << ": " << message;
+    QJsonArray arr;
+    QString name;
+    QString message;
+    while (query.next()){
+        QJsonObject list;
+        name = query.value(1).toString();
+        message = query.value(2).toString();
+        list.insert("name", name);
+        list.insert("message", message);
+        arr.push_back(list);
+    }
+    QJsonObject json;
+    json.insert("messages", arr);
+    QJsonDocument doc(json);
+    QString msg = doc.toJson(QJsonDocument::Compact);
+    clsocket->write(msg.toLatin1());
 
 }
 
@@ -66,24 +72,28 @@ void Server::onNewMessage(){
         auto msg = socket_ptr->readAll();
         QJsonDocument doc = QJsonDocument::fromJson(msg);
         QJsonObject json = doc.object();
-        qDebug() << json["name"].toString() << ": " << json["message"].toString();
-        QSqlQuery query;
-        query.prepare("INSERT INTO messages (name, message) VALUES (:name, :message)");
-        query.bindValue(":name", json["name"].toString());
-        query.bindValue(":message", json["message"].toString());
-        if (!query.exec()){
-            qDebug() << query.lastError().text();
+        //qDebug() << json["name"].toString() << ": " << json["message"].toString();
+        QJsonArray messages = json["messages"].toArray();
+        for (const auto& i: messages){
+            QJsonObject newobj = i.toObject();
+            QSqlQuery query;
+            query.prepare("INSERT INTO messages (name, message) VALUES (:name, :message)");
+            query.bindValue(":name", newobj["name"].toString());
+            query.bindValue(":message", newobj["message"].toString());
+            if (!query.exec()){
+                qDebug() << query.lastError().text();
+            }
+            for (const auto& cl: clients){
+                cl->write(msg);
+            }
         }
-        for (const auto& cl: clients){
-            cl->write(msg);
-        }
-        QSqlQuery selectQuery("SELECT * FROM messages");
-        while (selectQuery.next()) {
-            int id = selectQuery.value(0).toInt();
-            QString name = selectQuery.value(1).toString();
-            QString salary = selectQuery.value(2).toString();
-            qDebug() << "ID:" << id << ", Name:" << name << ", msg:" << salary;
-        }
+        //QSqlQuery selectQuery("SELECT * FROM messages");
+        //while (selectQuery.next()) {
+        //    int id = selectQuery.value(0).toInt();
+        //    QString name = selectQuery.value(1).toString();
+        //    QString salary = selectQuery.value(2).toString();
+        //    qDebug() << "ID:" << id << ", Name:" << name << ", msg:" << salary;
+        //}
     }
 }
 
