@@ -11,6 +11,7 @@
 Server::Server(QObject *parent)
     : QObject{parent}
 {
+    setlocale(LC_ALL, "Russian");
     server_ptr = new QTcpServer;
     connect(server_ptr, &QTcpServer::newConnection,
             this, &Server::onNewConnection);
@@ -32,8 +33,6 @@ void Server::onNewConnection()
 {
     auto clsocket = server_ptr->nextPendingConnection();
     qDebug() << "new connection";
-    QString clname = clsocket->readAll();
-    clients[clsocket] =  clname;
     connect(clsocket, &QTcpSocket::readyRead,
             this, &Server::onNewMessage);
     connect(clsocket, &QTcpSocket::disconnected,
@@ -56,37 +55,43 @@ void Server::onNewConnection()
     json.insert("messages", arr);
     QJsonDocument doc(json);
     QString msg = doc.toJson(QJsonDocument::Compact);
-    clsocket->write(msg.toLatin1());
+    clsocket->write(msg.toUtf8());
 
 }
 
 void Server::onDisconnect(){
     auto socket_ptr = dynamic_cast<QTcpSocket*>(sender());
-    socket_ptr->close();
     qDebug() << "Client: " << clients[socket_ptr] << " has left";
     clients.remove(socket_ptr);
+    socket_ptr->close();
 }
 
 void Server::onNewMessage(){
+    setlocale(LC_ALL, "Russian");
     auto socket_ptr = dynamic_cast<QTcpSocket*>(sender());
     while(socket_ptr->bytesAvailable() > 0){
         auto msg = socket_ptr->readAll();
         QJsonDocument doc = QJsonDocument::fromJson(msg);
         QJsonObject json = doc.object();
 
-        QJsonArray messages = json["messages"].toArray();
-        for (const auto& i: messages){
-            QJsonObject newobj = i.toObject();
-            QSqlQuery query;
-            query.prepare("INSERT INTO messages (name, message) VALUES (:name, :message)");
-            query.bindValue(":name", newobj["name"].toString());
-            query.bindValue(":message", newobj["message"].toString());
-            if (!query.exec()){
-                qDebug() << query.lastError().text();
-            }
-            qDebug() << newobj["name"].toString() << ": " << newobj["message"].toString();
-            for (auto cl = clients.keyBegin(); cl != clients.keyEnd(); ++cl){
-                (*cl)->write(msg);
+        if (json["mode"].toString() == "setName"){
+            clients[socket_ptr] = json["name"].toString();
+        }
+        else{
+            QJsonArray messages = json["messages"].toArray();
+            for (const auto& i: messages){
+                QJsonObject newobj = i.toObject();
+                QSqlQuery query;
+                query.prepare("INSERT INTO messages (name, message) VALUES (:name, :message)");
+                query.bindValue(":name", newobj["name"].toString());
+                query.bindValue(":message", newobj["message"].toString());
+                if (!query.exec()){
+                    qDebug() << query.lastError().text();
+                }
+                qDebug() << newobj["name"].toString() << ": " << newobj["message"].toString();
+                for (auto cl = clients.keyBegin(); cl != clients.keyEnd(); ++cl){
+                    (*cl)->write(msg);
+                }
             }
         }
     }
