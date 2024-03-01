@@ -11,7 +11,6 @@
 Server::Server(QObject *parent)
     : QObject{parent}
 {
-    setlocale(LC_ALL, "Russian");
     server_ptr = new QTcpServer;
     connect(server_ptr, &QTcpServer::newConnection,
             this, &Server::onNewConnection);
@@ -67,7 +66,6 @@ void Server::onDisconnect(){
 }
 
 void Server::onNewMessage(){
-    setlocale(LC_ALL, "Russian");
     auto socket_ptr = dynamic_cast<QTcpSocket*>(sender());
     while(socket_ptr->bytesAvailable() > 0){
         auto msg = socket_ptr->readAll();
@@ -76,22 +74,22 @@ void Server::onNewMessage(){
 
         if (json["mode"].toString() == "setName"){
             clients[socket_ptr] = json["name"].toString();
+            return;
         }
-        else{
-            QJsonArray messages = json["messages"].toArray();
+        QJsonArray messages = json["messages"].toArray();
             for (const auto& i: messages){
-                QJsonObject newobj = i.toObject();
-                QSqlQuery query;
-                query.prepare("INSERT INTO messages (name, message) VALUES (:name, :message)");
-                query.bindValue(":name", newobj["name"].toString());
-                query.bindValue(":message", newobj["message"].toString());
-                if (!query.exec()){
-                    qDebug() << query.lastError().text();
-                }
-                qDebug() << newobj["name"].toString() << ": " << newobj["message"].toString();
-                for (auto cl = clients.keyBegin(); cl != clients.keyEnd(); ++cl){
-                    (*cl)->write(msg);
-                }
+            QJsonObject newobj = i.toObject();
+            QSqlQuery query;
+            query.prepare("INSERT INTO messages (name, message) VALUES (:name, :message)");
+            query.bindValue(":name", newobj["name"].toString());
+            query.bindValue(":message", newobj["message"].toString());
+            if (!query.exec()){
+                qDebug() << query.lastError().text();
+            }
+            qDebug() << newobj["name"].toString() << ": " << newobj["message"].toString();
+            for (auto cl = clients.keyBegin(); cl != clients.keyEnd(); ++cl){
+                (*cl)->write(msg);
+
             }
         }
     }
