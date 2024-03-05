@@ -55,9 +55,8 @@ void Server::onNewConnection()
     json.insert("mode", "message");
     json.insert("messages", arr);
     QJsonArray arr2;
-    auto lst = clients.values();
-    for(const auto& i: lst){
-        arr2.append(i);
+    for(auto i = clients.begin(); i != clients.end(); ++i){
+        arr2.append(*i);
     }
     QJsonObject userlist;
     userlist.insert("mode", "add_user");
@@ -79,9 +78,22 @@ void Server::onNewConnection()
 // ]}
 void Server::onDisconnect(){
     auto socket_ptr = dynamic_cast<QTcpSocket*>(sender());
+    QString disconnected_name = clients[socket_ptr];
     qDebug() << "Client: " << clients[socket_ptr] << " has left";
     clients.remove(socket_ptr);
     socket_ptr->close();
+    QJsonObject obj;
+    QJsonArray arr;
+    QJsonObject discobj;
+    discobj.insert("mode", "remove_user");
+    discobj.insert("name", disconnected_name);
+    arr.append(discobj);
+    obj.insert("contents", arr);
+    QJsonDocument doc(obj);
+    QString json = doc.toJson(QJsonDocument::Compact);
+    for(auto i = clients.keyBegin(); i != clients.keyEnd(); ++i){
+        (*i)->write(json.toUtf8());
+    }
 }
 
 void Server::onNewMessage(){
